@@ -8,8 +8,11 @@
 
 class USphereComponent;
 class UProjectileMovementComponent;
-class ACharacter;
-class UPrimitiveComponent;
+class UStaticMeshComponent;
+class UMaterial;
+class UMaterialInterface;
+class UMaterialInstanceDynamic;
+class UDamageType;
 
 /**
  *  Simple projectile class for a first person shooter game
@@ -18,70 +21,87 @@ UCLASS(abstract)
 class GAM415_API AShooterProjectile : public AActor
 {
 	GENERATED_BODY()
-	
+
 	/** Provides collision detection for the projectile */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	USphereComponent* CollisionComponent;
 
 	/** Handles movement for the projectile */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UProjectileMovementComponent* ProjectileMovement;
 
-protected:
+	/** Visual mesh for the projectile (no collision, the sphere does that) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UStaticMeshComponent* ballMesh;
 
-	/** Loudness of the AI perception noise done by this projectile on hit */
-	UPROPERTY(EditAnywhere, Category="Projectile|Noise", meta = (ClampMin = 0, ClampMax = 100))
-	float NoiseLoudness = 3.0f;
+	// Spawns Decal material where the projectile hits
+	UPROPERTY(EditAnywhere, Category = "Projectile|Visuals")
+	UMaterialInterface* baseMat;
 
-	/** Range of the AI perception noise done by this projectile on hit */
-	UPROPERTY(EditAnywhere, Category="Projectile|Noise", meta = (ClampMin = 0, ClampMax = 100000, Units = "cm"))
-	float NoiseRange = 3000.0f;
+	// Overrides projMat with a random color on BeginPlay
+	UPROPERTY(EditAnywhere, Category = "Projectile|Visuals")
+	UMaterialInterface* projMat;
 
-	/** Tag of the AI perception noise done by this projectile on hit */
-	UPROPERTY(EditAnywhere, Category="Noise")
-	FName NoiseTag = FName("Projectile");
+	// Random color for the projectile material
+	UPROPERTY()
+	FLinearColor randColor;
 
-	/** Physics force to apply on hit */
-	UPROPERTY(EditAnywhere, Category="Projectile|Hit", meta = (ClampMin = 0, ClampMax = 50000))
-	float PhysicsForce = 100.0f;
 
-	/** Damage to apply on hit */
-	UPROPERTY(EditAnywhere, Category="Projectile|Hit", meta = (ClampMin = 0, ClampMax = 100))
-	float HitDamage = 25.0f;
-
-	/** Type of damage to apply. Can be used to represent specific types of damage such as fire, explosion, etc. */
-	UPROPERTY(EditAnywhere, Category="Projectile|Hit")
-	TSubclassOf<UDamageType> HitDamageType;
-
-	/** If true, the projectile can damage the character that shot it */
-	UPROPERTY(EditAnywhere, Category="Projectile|Hit")
-	bool bDamageOwner = false;
-
-	/** If true, the projectile will explode and apply radial damage to all actors in range */
-	UPROPERTY(EditAnywhere, Category="Projectile|Explosion")
-	bool bExplodeOnHit = false;
-
-	/** Max distance for actors to be affected by explosion damage */
-	UPROPERTY(EditAnywhere, Category="Projectile|Explosion", meta = (ClampMin = 0, ClampMax = 5000, Units = "cm"))
-	float ExplosionRadius = 500.0f;	
-
-	/** If true, this projectile has already hit another surface */
-	bool bHit = false;
-
-	/** How long to wait after a hit before destroying this projectile */
-	UPROPERTY(EditAnywhere, Category="Projectile|Destruction", meta = (ClampMin = 0, ClampMax = 10, Units = "s"))
-	float DeferredDestructionTime = 5.0f;
-
-	/** Timer to handle deferred destruction of this projectile */
-	FTimerHandle DestructionTimer;
-
-public:	
+public:
 
 	/** Constructor */
 	AShooterProjectile();
 
 protected:
-	
+
+	/** Loudness of the AI perception noise done by this projectile on hit */
+	UPROPERTY(EditAnywhere, Category = "Projectile|Noise", meta = (ClampMin = 0, ClampMax = 100))
+	float NoiseLoudness = 3.0f;
+
+	/** Range of the AI perception noise done by this projectile on hit */
+	UPROPERTY(EditAnywhere, Category = "Projectile|Noise", meta = (ClampMin = 0, ClampMax = 100000, Units = "cm"))
+	float NoiseRange = 3000.0f;
+
+	/** Tag of the AI perception noise done by this projectile on hit */
+	UPROPERTY(EditAnywhere, Category = "Projectile|Noise")
+	FName NoiseTag = FName("Projectile");
+
+	/** Physics force to apply on hit */
+	UPROPERTY(EditAnywhere, Category = "Projectile|Hit", meta = (ClampMin = 0, ClampMax = 50000))
+	float PhysicsForce = 100.0f;
+
+	/** Damage to apply on hit */
+	UPROPERTY(EditAnywhere, Category = "Projectile|Hit", meta = (ClampMin = 0, ClampMax = 100))
+	float HitDamage = 25.0f;
+
+	/** Type of damage to apply. Can be used to represent specific types of damage such as fire, explosion, etc. */
+	UPROPERTY(EditAnywhere, Category = "Projectile|Hit")
+	TSubclassOf<UDamageType> HitDamageType;
+
+	/** If true, the projectile can damage the character that shot it */
+	UPROPERTY(EditAnywhere, Category = "Projectile|Hit")
+	bool bDamageOwner = false;
+
+	/** If true, the projectile will explode and apply radial damage to all actors in range */
+	UPROPERTY(EditAnywhere, Category = "Projectile|Explosion")
+	bool bExplodeOnHit = false;
+
+	/** Max distance for actors to be affected by explosion damage */
+	UPROPERTY(EditAnywhere, Category = "Projectile|Explosion", meta = (ClampMin = 0, ClampMax = 5000, Units = "cm"))
+	float ExplosionRadius = 500.0f;
+
+	/** If true, this projectile has already hit another surface */
+	bool bHit = false;
+
+	/** How long to wait after a hit before destroying this projectile. 0 = destroy immediately (decal stays behind). */
+	UPROPERTY(EditAnywhere, Category = "Projectile|Destruction", meta = (ClampMin = 0, ClampMax = 10, Units = "s"))
+	float DeferredDestructionTime = 0.0f;
+
+	/** Timer to handle deferred destruction of this projectile */
+	FTimerHandle DestructionTimer;
+
+protected:
+
 	/** Gameplay initialization */
 	virtual void BeginPlay() override;
 
@@ -100,7 +120,7 @@ protected:
 	void ProcessHit(AActor* HitActor, UPrimitiveComponent* HitComp, const FVector& HitLocation, const FVector& HitDirection);
 
 	/** Passes control to Blueprint to implement any effects on hit. */
-	UFUNCTION(BlueprintImplementableEvent, Category="Projectile", meta = (DisplayName = "On Projectile Hit"))
+	UFUNCTION(BlueprintImplementableEvent, Category = "Projectile", meta = (DisplayName = "On Projectile Hit"))
 	void BP_OnProjectileHit(const FHitResult& Hit);
 
 	/** Called from the destruction timer to destroy this projectile */

@@ -17,7 +17,7 @@ AShooterProjectile::AShooterProjectile()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	// create the collision component and assign it as the root
+	// Create the collision component and assign it as the root
 	RootComponent = CollisionComponent = CreateDefaultSubobject<USphereComponent>(TEXT("Collision Component"));
 
 	CollisionComponent->SetSphereRadius(16.0f);
@@ -25,21 +25,60 @@ AShooterProjectile::AShooterProjectile()
 	CollisionComponent->SetCollisionResponseToAllChannels(ECR_Block);
 	CollisionComponent->CanCharacterStepUpOn = ECanBeCharacterBase::ECB_No;
 
-	// create the projectile movement component. No need to attach it because it's not a Scene Component
-	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Projectile Movement"));
+	// Visual mesh. Collision is handled by the sphere only
+	ballMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Ball Mesh"));
+	ballMesh->SetupAttachment(CollisionComponent);
+	ballMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
+	// Create the projectile movement component. No need to attach it because it's not a Scene Component
+	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Projectile Movement"));
 	ProjectileMovement->InitialSpeed = 3000.0f;
 	ProjectileMovement->MaxSpeed = 3000.0f;
 	ProjectileMovement->bShouldBounce = true;
 
-	// set the default damage type
+	// Set the default damage type
 	HitDamageType = UDamageType::StaticClass();
 }
 
 void AShooterProjectile::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	// Pick a random color for this projectile
+	randColor = FLinearColor(UKismetMathLibrary::RandomFloatInRange(0.0f, 1.0f), UKismetMathLibrary::RandomFloatInRange(0.0f, 1.0f), UKismetMathLibrary::RandomFloatInRange(0.0f, 1.0f), 1.0f);
+
+	// Color the static mesh on this actor 
+	TArray<UStaticMeshComponent*> MeshComps;
+	GetComponents<UStaticMeshComponent>(MeshComps);
+
+	int32 ColoredSlots = 0;
+
+	// This part changed a lot during testing up and looking to fix my issues
+	// First it does a safety check to prevent crashing
+	// Then if projMat is set, it will override the material on the mesh with projMat
+	// Then it loops through all the materials on the mesh and creates a dynamic material instance for each one, setting the "ProjColor" parameter to randColor
+	for (UStaticMeshComponent* MeshComp : MeshComps)
+	{
+		if (!MeshComp || !MeshComp->GetStaticMesh())
+		{
+			continue;
+		}
+
+		if (projMat)
+		{
+			MeshComp->SetMaterial(0, projMat);
+		}
+
+		for (int32 i = 0; i < MeshComp->GetNumMaterials(); ++i)
+		{
+			if (UMaterialInstanceDynamic* Dyn = MeshComp->CreateAndSetMaterialInstanceDynamic(i))
+			{
+				Dyn->SetVectorParameterValue(TEXT("ProjColor"), randColor);
+				++ColoredSlots;
+			}
+		}
+	}
+
 	// ignore the pawn that shot this projectile
 	CollisionComponent->IgnoreActorWhenMoving(GetInstigator(), true);
 }
@@ -68,17 +107,42 @@ void AShooterProjectile::NotifyHit(class UPrimitiveComponent* MyComp, AActor* Ot
 	// make AI perception noise
 	MakeNoise(NoiseLoudness, GetInstigator(), GetActorLocation(), NoiseRange, NoiseTag);
 
+	// leave a randomly colored decal where we hit
+	if (!baseMat)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ShooterProjectile: baseMat (decal material) is not set on %s"), *GetName());
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Projectile: Base Mat (decal material) is not assigned!"));
+		}
+	}
+	else if (Other != nullptr)
+	{
+		const float frameNum = UKismetMathLibrary::RandomFloatInRange(0.0f, 3.0f);
+		const float decalSize = UKismetMathLibrary::RandomFloatInRange(20.0f, 40.0f);
+
+		UDecalComponent* Decal = UGameplayStatics::SpawnDecalAtLocation(
+			GetWorld(), baseMat, FVector(decalSize), HitLocation, HitNormal.Rotation(), 0.0f);
+
+		if (Decal)
+		{
+			if (UMaterialInstanceDynamic* MatInstance = Decal->CreateDynamicMaterialInstance())
+			{
+				MatInstance->SetVectorParameterValue(TEXT("Color"), randColor);
+				MatInstance->SetScalarParameterValue(TEXT("Frame"), frameNum);
+			}
+		}
+	}
+
 	if (bExplodeOnHit)
 	{
-		
 		// apply explosion damage centered on the projectile
 		ExplosionCheck(GetActorLocation());
-
-	} else {
-
+	}
+	else
+	{
 		// single hit projectile. Process the collided actor
 		ProcessHit(Other, OtherComp, Hit.ImpactPoint, -Hit.ImpactNormal);
-
 	}
 
 	// pass control to BP for any extra effects
@@ -88,9 +152,9 @@ void AShooterProjectile::NotifyHit(class UPrimitiveComponent* MyComp, AActor* Ot
 	if (DeferredDestructionTime > 0.0f)
 	{
 		GetWorld()->GetTimerManager().SetTimer(DestructionTimer, this, &AShooterProjectile::OnDeferredDestruction, DeferredDestructionTime, false);
-
-	} else {
-
+	}
+	else
+	{
 		// destroy the projectile right away
 		Destroy();
 	}
@@ -130,12 +194,11 @@ void AShooterProjectile::ExplosionCheck(const FVector& ExplosionCenter)
 			DamagedActors.Add(CurrentOverlap.GetActor());
 
 			// apply physics force away from the explosion
-			const FVector& ExplosionDir = CurrentOverlap.GetActor()->GetActorLocation() - GetActorLocation();
+			const FVector ExplosionDir = CurrentOverlap.GetActor()->GetActorLocation() - GetActorLocation();
 
 			// push and/or damage the overlapped actor
 			ProcessHit(CurrentOverlap.GetActor(), CurrentOverlap.GetComponent(), GetActorLocation(), ExplosionDir.GetSafeNormal());
 		}
-			
 	}
 }
 
@@ -147,13 +210,15 @@ void AShooterProjectile::ProcessHit(AActor* HitActor, UPrimitiveComponent* HitCo
 		// ignore the owner of this projectile
 		if (HitCharacter != GetOwner() || bDamageOwner)
 		{
+			AController* InstigatorController = GetInstigator() ? GetInstigator()->GetController() : nullptr;
+
 			// apply damage to the character
-			UGameplayStatics::ApplyDamage(HitCharacter, HitDamage, GetInstigator()->GetController(), this, HitDamageType);
+			UGameplayStatics::ApplyDamage(HitCharacter, HitDamage, InstigatorController, this, HitDamageType);
 		}
 	}
 
 	// have we hit a physics object?
-	if (HitComp->IsSimulatingPhysics())
+	if (HitComp && HitComp->IsSimulatingPhysics())
 	{
 		// give some physics impulse to the object
 		HitComp->AddImpulseAtLocation(HitDirection * PhysicsForce, HitLocation);
