@@ -13,6 +13,7 @@ class UMaterial;
 class UMaterialInterface;
 class UMaterialInstanceDynamic;
 class UDamageType;
+class UNiagaraSystem;
 
 /**
  *  Simple projectile class for a first person shooter game
@@ -32,19 +33,22 @@ class GAM415_API AShooterProjectile : public AActor
 
 	/** Visual mesh for the projectile (no collision, the sphere does that) */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
-	UStaticMeshComponent* ballMesh;
+		UStaticMeshComponent* ballMesh;
 
 	// Spawns Decal material where the projectile hits
 	UPROPERTY(EditAnywhere, Category = "Projectile|Visuals")
-	UMaterialInterface* baseMat;
+		UMaterialInterface* baseMat;
 
 	// Overrides projMat with a random color on BeginPlay
 	UPROPERTY(EditAnywhere, Category = "Projectile|Visuals")
-	UMaterialInterface* projMat;
+		UMaterialInterface* projMat;
 
 	// Random color for the projectile material
 	UPROPERTY()
-	FLinearColor randColor;
+		FLinearColor randColor;
+
+	UPROPERTY(EditAnywhere)
+		UNiagaraSystem* colorP;
 
 
 public:

@@ -5,6 +5,8 @@
 #include "GAM415Character.h"
 #include "Variant_Shooter/ShooterCharacter.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
 
 // Sets default values
 ACubeDMIMod::ACubeDMIMod()
@@ -57,11 +59,14 @@ void ACubeDMIMod::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 		float ranNumY = UKismetMathLibrary::RandomFloatInRange(0.0f, 1.0f);
 		float ranNumZ = UKismetMathLibrary::RandomFloatInRange(0.0f, 1.0f);
 
-		FVector4 randColor = FVector4(ranNumX, ranNumY, ranNumZ, 1.0f);
+		FLinearColor randColor = FLinearColor(ranNumX, ranNumY, ranNumZ, 1.0f);
 		if (dmiMat)
 		{
 			dmiMat->SetVectorParameterValue("Color", randColor);
 			dmiMat->SetScalarParameterValue("Darkness", ranNumX);
+			UNiagaraComponent* particleComp = UNiagaraFunctionLibrary::SpawnSystemAttached(colorP, OtherComp, NAME_None, FVector(0.0f), FRotator(0.0f), EAttachLocation::KeepRelativeOffset, true, false);
+
+			particleComp->SetNiagaraVariableLinearColor(FString("RandColor"), randColor);
 		}
 	}
 
@@ -71,11 +76,30 @@ void ACubeDMIMod::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AActor* Ot
 		float ranNumY = UKismetMathLibrary::RandomFloatInRange(0.0f, 1.0f);
 		float ranNumZ = UKismetMathLibrary::RandomFloatInRange(0.0f, 1.0f);
 
-		FVector4 randColor = FVector4(ranNumX, ranNumY, ranNumZ, 1.0f);
+		FLinearColor randColor = FLinearColor(ranNumX, ranNumY, ranNumZ, 1.0f);
 		if (dmiMat)
 		{
 			dmiMat->SetVectorParameterValue("Color", randColor);
 			dmiMat->SetScalarParameterValue("Darkness", ranNumX);
+
+			if (colorP)
+			{
+				// Spawns the Niagara particles at the hit location with the random color set
+				UNiagaraComponent* particleComp = UNiagaraFunctionLibrary::SpawnSystemAttached(
+					colorP, 
+					OtherComp, 
+					NAME_None, 
+					FVector(0.0f), 
+					FRotator(0.0f), 
+					EAttachLocation::KeepRelativeOffset, 
+					true,
+					false);
+
+				particleComp->SetNiagaraVariableLinearColor(FString("RandColor"), randColor);
+				particleComp->ActivateSystem(true);
+			}
+
+			
 		}
 	}
 }

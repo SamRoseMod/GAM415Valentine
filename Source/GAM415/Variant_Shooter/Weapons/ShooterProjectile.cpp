@@ -3,15 +3,20 @@
 
 #include "ShooterProjectile.h"
 #include "Components/SphereComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/DecalComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/DamageType.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/Controller.h"
 #include "Engine/OverlapResult.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
 
 AShooterProjectile::AShooterProjectile()
 {
@@ -118,6 +123,30 @@ void AShooterProjectile::NotifyHit(class UPrimitiveComponent* MyComp, AActor* Ot
 	}
 	else if (Other != nullptr)
 	{
+		if (colorP)
+		{
+			//  Spawns the Niagara particles at the hit location with the random color set
+			UNiagaraComponent* particleComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+				GetWorld(),
+				colorP,
+				HitLocation,
+				HitNormal.Rotation(),
+				FVector(1.0f),
+				true,
+				false
+			);
+
+			// Set the random color parameter on the Niagara system
+			if (particleComp)
+			{
+				particleComp->SetNiagaraVariableLinearColor(FString("RandomColor"), randColor);
+				particleComp->ActivateSystem(true);
+			}
+
+			ballMesh->DestroyComponent();
+			CollisionComponent->BodyInstance.SetCollisionProfileName("NoCollision");
+		}
+		
 		const float frameNum = UKismetMathLibrary::RandomFloatInRange(0.0f, 3.0f);
 		const float decalSize = UKismetMathLibrary::RandomFloatInRange(20.0f, 40.0f);
 
