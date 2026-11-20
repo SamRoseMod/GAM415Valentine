@@ -17,6 +17,7 @@
 #include "TimerManager.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraComponent.h"
+#include "PerlinProcTerrain.h"
 
 AShooterProjectile::AShooterProjectile()
 {
@@ -160,6 +161,13 @@ void AShooterProjectile::NotifyHit(class UPrimitiveComponent* MyComp, AActor* Ot
 				MatInstance->SetVectorParameterValue(TEXT("Color"), randColor);
 				MatInstance->SetScalarParameterValue(TEXT("Frame"), frameNum);
 			}
+		}
+
+		APerlinProcTerrain* procTerrain = Cast<APerlinProcTerrain>(Other);
+
+		if(procTerrain)
+		{
+			procTerrain->AlterMesh(Hit.ImpactPoint);
 		}
 	}
 
