@@ -83,12 +83,13 @@ protected:
 	
 
 public:
-
 	/** Returns the first person mesh **/
 	USkeletalMeshComponent* GetFirstPersonMesh() const { return FirstPersonMesh; }
 
 	/** Returns first person camera component **/
 	UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
 
+	UPROPERTY(Editanywhere)
+		bool isTeleporting;
 };
 
